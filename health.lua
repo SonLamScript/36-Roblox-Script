@@ -2,7 +2,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Khởi tạo cấu hình map động dựa trên PlaceId đa vũ trụ
+-- Khởi tạo cấu hình map động dựa trên PlaceId
 local currentPlaceId = game.PlaceId
 local config = {
     TargetPos = Vector3.new(5137, 54, 12),
@@ -93,6 +93,7 @@ do
     })
 
     local Disable3DToggle = Tabs.Misc:AddToggle("Disable3D", {Title = "Disable 3D Rendering", Default = false })
+    local AntiPauseToggle = Tabs.Misc:AddToggle("AntiGameplayPaused", {Title = "Anti Gameplay Paused", Default = false })
     local AutoBuyPackToggle = Tabs.Misc:AddToggle("AutoBuyPack", {Title = "Auto Buy Pack", Default = false })
 
     -- Core Services & Player Setup
@@ -102,6 +103,13 @@ do
 
     Disable3DToggle:OnChanged(function()
         pcall(function() runService:Set3dRenderingEnabled(not Options.Disable3D.Value) end)
+    end)
+
+    -- Cơ chế Anti Gameplay Paused cưỡng ép giải phóng màn hình
+    AntiPauseToggle:OnChanged(function()
+        pcall(function()
+            lp.GameplayPaused = false
+        end)
     end)
 
     Tabs.Misc:AddButton({
@@ -133,7 +141,7 @@ do
     local healthRemote = remotesFolder:WaitForChild("MHP")
     local trainRemote = remotesFolder:WaitForChild("Gain Hp From Tredmill")
     local rebirthRemote = game:GetService("ReplicatedStorage"):WaitForChild("RebirthRemote")
-    local purchaseRemote = remotesFolder:WaitForChild("Purchase") -- FIXED: Khởi tạo remote chuẩn
+    local purchaseRemote = remotesFolder:WaitForChild("Purchase") 
     local luckRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("Function"):WaitForChild("Luck"):WaitForChild("[C-S]DoLuck")
     
     local fireServer = healthRemote.FireServer
@@ -213,7 +221,7 @@ do
                         Title = "Xóa",
                         Callback = function()
                             isRunning = false 
-                            pcall(function() runService:Set3dRenderingEnabled(true) end)
+                            pcall(function() game:GetService("RunService"):Set3dRenderingEnabled(true) end)
                             Fluent:Destroy() 
                         end
                     },
@@ -295,15 +303,29 @@ do
         end
     end)
 
-    -- Luồng Auto Buy Pack siêu tốc tích hợp micro-batching giải phóng băng thông
+    -- Luồng Auto Buy Pack Ép Xung Siêu Tốc
     local cachedPackArgs = { "Legendary" }
     task.spawn(function()
         while isRunning do
             waitFrame(runService.Heartbeat)
             if Options.AutoBuyPack and Options.AutoBuyPack.Value then
                 pcall(function()
-                    for _ = 1, 30 do -- Spam siêu nhanh 30 requests mỗi khung hình Heartbeat
+                    for _ = 1, 250 do
                         purchaseRemote:FireServer(unpack(cachedPackArgs))
+                    end
+                end)
+            end
+        end
+    end)
+
+    -- Luồng bảo vệ ép thuộc tính GameplayPaused liên tục
+    task.spawn(function()
+        while isRunning do
+            waitFrame(runService.Heartbeat)
+            if Options.AntiGameplayPaused and Options.AntiGameplayPaused.Value then
+                pcall(function()
+                    if lp.GameplayPaused then
+                        lp.GameplayPaused = false
                     end
                 end)
             end
@@ -311,6 +333,7 @@ do
     end)
 end
 
+-- Đồng bộ cấu hình add-on Fluent
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 InterfaceManager:SetFolder("NesuxHub")

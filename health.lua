@@ -3,7 +3,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "NEXUS Hub v3.1",
+    Title = "NEXUS Hub v3.2",
     SubTitle = "by SonDz",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
@@ -19,7 +19,7 @@ local Tabs = {
 }
 
 local Options = Fluent.Options
-local isRunning = true -- Flag stop threads giải phóng bộ nhớ
+local isRunning = true -- Flag stop threads
 
 do
     Tabs.Main:AddParagraph({
@@ -52,7 +52,6 @@ do
     })
     local RollToggle = Tabs.Main:AddToggle("AutoRoll", {Title = "Auto Roll Pet (Egg4)", Default = false })
 
-    -- Tab Debug tối giản theo yêu cầu
     Tabs.Debug:AddParagraph({
         Title = "Developer Sandbox",
         Content = "Hot-Reloading quản lý runtime."
@@ -69,8 +68,8 @@ do
                     {
                         Title = "Xóa Ngay",
                         Callback = function()
-                            isRunning = false -- Break toàn bộ while loops ngay frame sau
-                            Fluent:Destroy() -- Kill instance UI gốc
+                            isRunning = false -- Phá loop thread
+                            Fluent:Destroy() -- Xóa UI instance
                         end
                     },
                     {
@@ -159,7 +158,7 @@ do
 end
 
 SaveManager:SetLibrary(Fluent)
-InterfaceManager:setFolder("NEXUS_FluentHub")
+InterfaceManager:SetFolder("NEXUS_FluentHub") -- FIXED: Viết hoa chữ S chuẩn hóa method của Fluent
 SaveManager:SetFolder("NEXUS_FluentHub/game")
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
@@ -168,7 +167,7 @@ Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
 
 Fluent:Notify({
-    Title = "NEXUS Loaded",
-    Content = "Đã dọn sạch tab Debug, chỉ giữ lại nút tối thượng DESTROY GUI no cap!",
+    Title = "NEXUS Fixed",
+    Content = "Đã sửa lỗi cú pháp 'setFolder' thành 'SetFolder'. Chạy bao mượt no cap!",
     Duration = 5
 })

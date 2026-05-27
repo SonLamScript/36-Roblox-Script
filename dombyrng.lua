@@ -46,41 +46,14 @@ local Tabs = {
 local Options = Fluent.Options
 
 -- =============================================================================
--- HÀM XỬ LÝ LOGIC TỰ ĐỘNG LỌC TOP 3 ZOMBIE MẠNH NHẤT
--- =============================================================================
-local function fetchTop3Zombies()
-    local success, playerData = pcall(function()
-        return dataRemote:InvokeServer()
-    end)
-    
-    if success and playerData and playerData.EquippedZombies then
-        local zombies = playerData.EquippedZombies
-        
-        -- Sắp xếp toàn bộ Zombie đang trang bị theo EquipId giảm dần (ID cao hơn = mạnh hơn)
-        table.sort(zombies, function(a, b)
-            local idA = tonumber(a.EquipId) or 0
-            local idB = tonumber(b.EquipId) or 0
-            return idA > idB
-        end)
-        
-        -- Lọc lấy ra tối đa đúng 3 con đầu bảng (mạnh nhất)
-        local top3 = {}
-        for i = 1, math.min(3, #zombies) do
-            table.insert(top3, zombies[i])
-        end
-        
-        cacheEquippedZombies = top3
-        return top3
-    end
-    return {}
-end
-
--- Lấy danh sách lần đầu tiên khi chạy script
-task.spawn(fetchTop3Zombies)
-
--- =============================================================================
 -- CÁC PHẦN TỬ ĐIỀU KHIỂN TRÊN TAB MAIN
 -- =============================================================================
+
+-- Khu vực hiện Debug 3 con Zombie đang được chọn để đánh
+local DebugParagraph = Tabs.Main:AddParagraph({
+    Title = "Selected Zombies Debug",
+    Content = "Fetching data, please wait..."
+})
 
 -- 1. Bật/Tắt Tự Động Trang Bị Mạnh Nhất (Auto Equip Best)
 local AutoEquipToggle = Tabs.Main:AddToggle("AutoEquipBest", { Title = "Auto Equip Best", Default = false })
@@ -109,6 +82,55 @@ local TargetSlider = Tabs.Main:AddSlider("MaxTargets", {
     Callback = function(Value) end
 })
 
+-- =============================================================================
+-- HÀM XỬ LÝ LOGIC TỰ ĐỘNG LỌC TOP 3 ZOMBIE MẠNH NHẤT & CẬP NHẬT DEBUG UI
+-- =============================================================================
+local function fetchTop3Zombies()
+    local success, playerData = pcall(function()
+        return dataRemote:InvokeServer()
+    end)
+    
+    if success and playerData and playerData.EquippedZombies then
+        local zombies = playerData.EquippedZombies
+        
+        -- Sắp xếp toàn bộ Zombie đang trang bị theo EquipId giảm dần
+        table.sort(zombies, function(a, b)
+            local idA = tonumber(a.EquipId) or 0
+            local idB = tonumber(b.EquipId) or 0
+            return idA > idB
+        end)
+        
+        -- Lọc lấy ra tối đa đúng 3 con đầu bảng (mạnh nhất)
+        local top3 = {}
+        for i = 1, math.min(3, #zombies) do
+            table.insert(top3, zombies[i])
+        end
+        
+        cacheEquippedZombies = top3
+        
+        -- Tiến hành cập nhật nội dung Text hiển thị lên Debug Paragraph trên Menu
+        local debugText = ""
+        if #top3 == 0 then
+            debugText = "No zombies currently equipped or found!"
+        else
+            for index, zombie in ipairs(top3) do
+                debugText = debugText .. string.format("[%d] %s (ID: %s)\n", index, tostring(zombie.Name), tostring(zombie.EquipId))
+            end
+        end
+        -- Cắt bỏ dấu xuống dòng thừa ở cuối cùng
+        debugText = debugText:sub(1, #debugText - 1)
+        
+        -- Cập nhật giao diện Fluent UI
+        DebugParagraph:SetTitle("Selected Zombies Debug (" .. tostring(#top3) .. "/3)")
+        DebugParagraph:SetContent(debugText)
+        
+        return top3
+    end
+    
+    DebugParagraph:SetContent("Error: Failed to fetch data from Server.")
+    return {}
+end
+
 -- Nút bấm thủ công hỗ trợ làm mới danh sách Top 3
 Tabs.Main:AddButton({
     Title = "Manual Refresh Top 3",
@@ -118,6 +140,9 @@ Tabs.Main:AddButton({
         Fluent:Notify({ Title = "System", Content = "Successfully optimized top 3 strongest zombies!", Duration = 3 })
     end
 })
+
+-- Lấy danh sách lần đầu tiên khi vừa chạy script để nạp UI ngay lập tức
+task.spawn(fetchTop3Zombies)
 
 -- =============================================================================
 -- CÁC PHẦN TỬ ĐIỀU KHIỂN TRÊN TAB MISC
@@ -214,7 +239,7 @@ task.spawn(function()
     end
 end)
 
--- LUỒNG 2: Vòng lặp Auto Equip Best và tự động cập nhật danh sách Top 3
+-- LUỒNG 2: Vòng lặp Auto Equip Best và tự động cập nhật danh sách Top 3 + Debug UI
 task.spawn(function()
     while true do
         if Fluent.Unloaded then break end
@@ -223,9 +248,9 @@ task.spawn(function()
             pcall(function()
                 equipBestRemote:InvokeServer()
             end)
-            -- Sau khi bấm trang bị tốt nhất, gọi hàm lọc lại Top 3 ngay lập tức
+            -- Sau khi bấm trang bị tốt nhất, gọi hàm lọc lại Top 3 để cập nhật text debug luôn
             fetchTop3Zombies()
-            task.wait(5) -- Nhịp chờ 5 giây một lần để tối ưu hóa hiệu năng Server
+            task.wait(5) -- Nhịp chờ 5 giây một lần
         else
             task.wait(1)
         end
@@ -253,7 +278,7 @@ task.spawn(function()
     end
 end)
 
--- LUỒNG 4: Tự động đồng bộ nhẹ danh sách Pet mỗi 15 giây khi không bật Auto Equip
+-- LUỒNG 4: Tự động đồng bộ nhẹ danh sách Pet và cập nhật Debug UI mỗi 15 giây khi không treo auto-equip
 task.spawn(function()
     while task.wait(15) do
         if Fluent.Unloaded then break end
@@ -278,6 +303,6 @@ SaveManager:LoadAutoloadConfig()
 
 Fluent:Notify({
     Title = "Zombie Spammer",
-    Content = "Optimized script with Auto-Equip Best successfully loaded!",
+    Content = "Optimized script with Live Debug UI loaded successfully!",
     Duration = 5
 })

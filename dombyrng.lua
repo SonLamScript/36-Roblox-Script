@@ -57,7 +57,7 @@ local DebugParagraph = Tabs.Main:AddParagraph({
 })
 
 -- 1. Bật/Tắt Tự Động Trang Bị Mạnh Nhất (Auto Equip Best)
-local AutoEquipToggle = Tabs.Main:AddToggle("AutoEquipBest", { Title = "Auto Equip Best", Default = false })
+local AutoEquipToggle = Tabs.Main:AddToggle("AutoEquipBest", { Title = "Auto Equip Best (Every 3 Mins)", Default = false })
 
 -- 2. Bật/Tắt Tấn Công Thường (Auto Attack)
 local AutoAttackToggle = Tabs.Main:AddToggle("AutoAttack", { Title = "Auto Damage Spam", Default = false })
@@ -101,7 +101,6 @@ local function fetchTop3Zombies()
             for _, pet in ipairs(petsFolder:GetChildren()) do
                 if pet:IsA("Model") then
                     local dmgAttr = pet:GetAttribute("Damage") or 0
-                    -- Lưu giữ mức damage lớn nhất nếu bạn gọi ra nhiều con trùng tên
                     if not damageMap[pet.Name] or dmgAttr > damageMap[pet.Name] then
                         damageMap[pet.Name] = tonumber(dmgAttr) or 0
                     end
@@ -114,7 +113,7 @@ local function fetchTop3Zombies()
             zombie.ActualDamage = damageMap[zombie.Name] or 0
         end
         
-        -- Sắp xếp toàn bộ Zombie theo lượng ActualDamage giảm dần (Con nào có Attribute Damage cao xếp trước)
+        -- Sắp xếp toàn bộ Zombie theo lượng ActualDamage giảm dần
         table.sort(serverZombies, function(a, b)
             if a.ActualDamage == b.ActualDamage then
                 return (tonumber(a.EquipId) or 0) > (tonumber(b.EquipId) or 0)
@@ -148,14 +147,25 @@ local function fetchTop3Zombies()
         print("=========================================")
         
         debugText = debugText:sub(1, #debugText - 1)
-        DebugParagraph:SetTitle("Selected Zombies Debug (" .. tostring(#top3) .. "/3)")
-        DebugParagraph:SetContent(debugText)
+        
+        -- [ĐÃ SỬA LỖI SETCONTENT]: Cập nhật UI an toàn tương thích hoàn toàn với mọi bản Fluent
+        pcall(function()
+            if DebugParagraph.SetContent then
+                DebugParagraph:SetContent(debugText)
+                DebugParagraph:SetTitle("Selected Zombies Debug (" .. tostring(#top3) .. "/3)")
+            elseif DebugParagraph.UpdateContent then
+                DebugParagraph:UpdateContent(debugText)
+            else
+                DebugParagraph.Content = debugText
+                DebugParagraph.Title = "Selected Zombies Debug (" .. tostring(#top3) .. "/3)"
+            end
+        end)
         
         return top3
     end
     
     warn("❌ [ZOMBIE DEBUG ERROR]: Failed to sync data from Server.")
-    DebugParagraph:SetContent("Error: Failed to fetch data from Server.")
+    pcall(function() DebugParagraph.Content = "Error: Failed to fetch data from Server." end)
     return {}
 end
 
@@ -245,7 +255,7 @@ task.spawn(function()
     end
 end)
 
--- LUỒNG 2: Vòng lặp Auto Equip Best
+-- LUỒNG 2: [ĐÃ CẬP NHẬT CHỈNH SỬA]: Vòng lặp Auto Equip Best chạy mỗi 3 phút (180 giây)
 task.spawn(function()
     while true do
         if Fluent.Unloaded then break end
@@ -253,7 +263,7 @@ task.spawn(function()
         if Options.AutoEquipBest.Value then
             pcall(function() equipBestRemote:InvokeServer() end)
             fetchTop3Zombies()
-            task.wait(5)
+            task.wait(180) -- 3 phút hoàn chỉnh chống lag và tối ưu hóa hệ thống
         else
             task.wait(1)
         end
@@ -304,6 +314,6 @@ SaveManager:LoadAutoloadConfig()
 
 Fluent:Notify({
     Title = "Zombie Spammer",
-    Content = "Damage-based tracking system successfully initiated!",
+    Content = "Errors fixed! Auto-Equip adjusted to 3 minutes.",
     Duration = 5
 })

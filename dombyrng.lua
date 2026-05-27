@@ -24,17 +24,17 @@ local function getCurrentEnemyFolder()
     return Workspace:FindFirstChild("LocalEnemies_" .. localPlayer.Name)
 end
 
--- Hàm lấy danh sách Folder Pet đang gọi ra ngoài sân theo thời gian thực
+-- Hàm lấy danh sách Folder Pet ngoài sân theo thời gian thực
 local function getCurrentZombiePetsFolder()
     return Workspace:FindFirstChild("ZombiePets_" .. localPlayer.Name)
 end
 
 -- =============================================================================
--- THIẾT LẬP GIAO DIỆN MENU FLUENT (ENGLISH INTERFACE)
+-- THIẾT LẬP GIAO DIỆN MENU FLUENT
 -- =============================================================================
 local Window = Fluent:CreateWindow({
     Title = "Zombie Spammer Hub",
-    SubTitle = "Damage-Based Sorting",
+    SubTitle = "Clean & Optimized",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -49,12 +49,6 @@ local Tabs = {
 }
 
 local Options = Fluent.Options
-
--- Khu vực hiện Debug 3 con Zombie đang được chọn để đánh trên UI
-local DebugParagraph = Tabs.Main:AddParagraph({
-    Title = "Selected Zombies Debug",
-    Content = "Fetching data, please wait..."
-})
 
 -- 1. Bật/Tắt Tự Động Trang Bị Mạnh Nhất (Auto Equip Best)
 local AutoEquipToggle = Tabs.Main:AddToggle("AutoEquipBest", { Title = "Auto Equip Best (Every 3 Mins)", Default = false })
@@ -75,7 +69,7 @@ local SpeedSlider = Tabs.Main:AddSlider("AttackSpeed", {
 
 local TargetSlider = Tabs.Main:AddSlider("MaxTargets", {
     Title = "Max Targets At Once",
-    Description = "Limit the number of enemies targeted simultaneously (Recommended: 3-4).",
+    Description = "Limit the number of enemies targeted simultaneously.",
     Default = 4,
     Min = 1,
     Max = 10,
@@ -84,7 +78,7 @@ local TargetSlider = Tabs.Main:AddSlider("MaxTargets", {
 })
 
 -- =============================================================================
--- HÀM XỬ LÝ LOGIC LỌC TOP 3 THEO ATTRIBUTE DAMAGE TRÊN WORKSPACE
+-- HÀM TỰ ĐỘNG XÁC ĐỊNH TOP 3 ZOMBIE MẠNH NHẤT THEO DAMAGE ATTR
 -- =============================================================================
 local function fetchTop3Zombies()
     local success, playerData = pcall(function()
@@ -95,7 +89,6 @@ local function fetchTop3Zombies()
         local serverZombies = playerData.EquippedZombies
         local petsFolder = getCurrentZombiePetsFolder()
         
-        -- Tạo một bảng ánh xạ (Map) để tra cứu nhanh lượng Damage dựa trên Tên từ Workspace
         local damageMap = {}
         if petsFolder then
             for _, pet in ipairs(petsFolder:GetChildren()) do
@@ -108,12 +101,10 @@ local function fetchTop3Zombies()
             end
         end
 
-        -- Gán chỉ số Damage thực tế quét từ Workspace vào danh sách từ Server
         for _, zombie in pairs(serverZombies) do
             zombie.ActualDamage = damageMap[zombie.Name] or 0
         end
         
-        -- Sắp xếp toàn bộ Zombie theo lượng ActualDamage giảm dần
         table.sort(serverZombies, function(a, b)
             if a.ActualDamage == b.ActualDamage then
                 return (tonumber(a.EquipId) or 0) > (tonumber(b.EquipId) or 0)
@@ -121,58 +112,21 @@ local function fetchTop3Zombies()
             return a.ActualDamage > b.ActualDamage
         end)
         
-        -- Trích xuất lấy đúng Top 3 con đầu bảng có damage khủng nhất
         local top3 = {}
         for i = 1, math.min(3, #serverZombies) do
             table.insert(top3, serverZombies[i])
         end
         
         cacheEquippedZombies = top3
-        
-        -- Tiến hành xuất dữ liệu Debug trực quan ra Console F9 và UI Paragraph
-        local debugText = ""
-        print("=========================================")
-        print("🔍 [ZOMBIE DAMAGE DEBUG] TOP 3 SPAM LIST:")
-        
-        if #top3 == 0 then
-            debugText = "No zombies currently equipped or found!"
-            print("⚠️ No equipped zombies detected.")
-        else
-            for index, zombie in ipairs(top3) do
-                local line = string.format("[%d] %s (Dmg: %s | ID: %s)", index, tostring(zombie.Name), tostring(zombie.ActualDamage), tostring(zombie.EquipId))
-                debugText = debugText .. line .. "\n"
-                print(line)
-            end
-        end
-        print("=========================================")
-        
-        debugText = debugText:sub(1, #debugText - 1)
-        
-        -- [ĐÃ SỬA LỖI SETCONTENT]: Cập nhật UI an toàn tương thích hoàn toàn với mọi bản Fluent
-        pcall(function()
-            if DebugParagraph.SetContent then
-                DebugParagraph:SetContent(debugText)
-                DebugParagraph:SetTitle("Selected Zombies Debug (" .. tostring(#top3) .. "/3)")
-            elseif DebugParagraph.UpdateContent then
-                DebugParagraph:UpdateContent(debugText)
-            else
-                DebugParagraph.Content = debugText
-                DebugParagraph.Title = "Selected Zombies Debug (" .. tostring(#top3) .. "/3)"
-            end
-        end)
-        
         return top3
     end
-    
-    warn("❌ [ZOMBIE DEBUG ERROR]: Failed to sync data from Server.")
-    pcall(function() DebugParagraph.Content = "Error: Failed to fetch data from Server." end)
     return {}
 end
 
--- Nút bấm làm mới thủ công
+-- Nút bấm làm mới thủ công (Giữ lại để bạn dùng khi cần ép cập nhật gấp)
 Tabs.Main:AddButton({
     Title = "Manual Refresh Top 3",
-    Description = "Forces the script to recalculate top 3 zombies by Workspace Attribute Damage.",
+    Description = "Forces the script to recalculate top 3 zombies immediately.",
     Callback = function()
         fetchTop3Zombies()
         Fluent:Notify({ Title = "System", Content = "Successfully sorted top 3 zombies by real damage!", Duration = 3 })
@@ -203,10 +157,10 @@ Tabs.Misc:AddButton({
 })
 
 -- =============================================================================
--- LUỒNG CHẠY NGẦM KHỞI TẠO CÁC CHỨC NĂNG VÒNG LẶP (BACKGROUND LOOPS)
+-- CÁC VÒNG LẶP CHẠY NGẦM KHÔNG ĐỂ LẠI LOG (BACKGROUND LOOPS)
 -- =============================================================================
 
--- LUỒNG 1: Vòng lặp Spam Damage chính
+-- VÒNG LẶP 1: Spam Damage chính
 task.spawn(function()
     while true do
         if Fluent.Unloaded then break end
@@ -229,7 +183,6 @@ task.spawn(function()
                             targetedCount = targetedCount + 1
                             local idNum = tonumber(enemyId) or enemyId
                             
-                            -- Spam sát thương từ 3 con có chỉ số damage cao nhất ngoài sân
                             for _, zombie in pairs(cacheEquippedZombies) do
                                 if zombie.Name and zombie.EquipId then
                                     damageRemote:FireServer({
@@ -255,7 +208,7 @@ task.spawn(function()
     end
 end)
 
--- LUỒNG 2: [ĐÃ CẬP NHẬT CHỈNH SỬA]: Vòng lặp Auto Equip Best chạy mỗi 3 phút (180 giây)
+-- VÒNG LẶP 2: Auto Equip Best chạy mỗi 3 phút (180 giây)
 task.spawn(function()
     while true do
         if Fluent.Unloaded then break end
@@ -263,14 +216,14 @@ task.spawn(function()
         if Options.AutoEquipBest.Value then
             pcall(function() equipBestRemote:InvokeServer() end)
             fetchTop3Zombies()
-            task.wait(180) -- 3 phút hoàn chỉnh chống lag và tối ưu hóa hệ thống
+            task.wait(180) 
         else
             task.wait(1)
         end
     end
 end)
 
--- LUỒNG 3: Vòng lặp giữ chỉ số WalkSpeed & JumpPower liên tục
+-- VÒNG LẶP 3: Giữ chỉ số WalkSpeed & JumpPower liên tục
 task.spawn(function()
     while true do
         if Fluent.Unloaded then break end
@@ -289,7 +242,7 @@ task.spawn(function()
     end
 end)
 
--- LUỒNG 4: Tự động đồng bộ nhẹ danh sách Pet dựa trên map mới mỗi 15 giây
+-- VÒNG LẶP 4: Tự động quét nhẹ danh sách Pet dựa trên map mới mỗi 15 giây
 task.spawn(function()
     while task.wait(15) do
         if Fluent.Unloaded then break end
@@ -314,6 +267,6 @@ SaveManager:LoadAutoloadConfig()
 
 Fluent:Notify({
     Title = "Zombie Spammer",
-    Content = "Errors fixed! Auto-Equip adjusted to 3 minutes.",
+    Content = "Script loaded successfully! Clean & Optimized.",
     Duration = 5
 })

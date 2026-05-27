@@ -2,7 +2,7 @@ local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/
 local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
--- Khởi tạo cấu hình map động dựa trên PlaceId
+-- Khởi tạo cấu hình map động dựa trên PlaceId đa vũ trụ
 local currentPlaceId = game.PlaceId
 local config = {
     TargetPos = Vector3.new(5137, 54, 12),
@@ -20,7 +20,7 @@ if currentPlaceId == 76335816485479 then
 elseif currentPlaceId == 89953384612326 then
     config.TargetPos = Vector3.new(939, 223, 685)
     config.EggName = "Egg7"
-    config.RebirthAmount = 10000000000
+    config.RebirthAmount = 100000000000000
     config.WinValueCheck = 4000000000000000000
 end
 
@@ -36,7 +36,7 @@ local Window = Fluent:CreateWindow({
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "play" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "box" }), -- Thêm tab Misc mới fr fr
+    Misc = Window:AddTab({ Title = "Misc", Icon = "box" }),
     Debug = Window:AddTab({ Title = "Debug", Icon = "code" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
@@ -88,29 +88,52 @@ do
 
     -- ==================== TAB MISC ====================
     Tabs.Misc:AddParagraph({
-        Title = "Game Optimizer",
-        Content = "Tối ưu hóa tài nguyên phần cứng khi treo máy đêm no cap."
+        Title = "Game Optimizer & Exploit",
+        Content = "Quản lý giao diện ẩn và tối ưu phần cứng treo máy."
     })
 
-    -- Toggle tắt 3D Rendering cứu rỗi GPU/RAM khi AFK
     local Disable3DToggle = Tabs.Misc:AddToggle("Disable3D", {Title = "Disable 3D Rendering", Default = false })
-    
-    Disable3DToggle:OnChanged(function()
-        pcall(function()
-            game:GetService("RunService"):Set3dRenderingEnabled(not Options.Disable3D.Value)
-        end)
-    end)
+    local AutoBuyPackToggle = Tabs.Misc:AddToggle("AutoBuyPack", {Title = "Auto Buy Pack", Default = false })
 
-    -- Core Services Cache
+    -- Core Services & Player Setup
     local runService = game:GetService("RunService")
     local lp = game:GetService("Players").LocalPlayer
     local waitFrame = runService.Heartbeat.Wait
+
+    Disable3DToggle:OnChanged(function()
+        pcall(function() runService:Set3dRenderingEnabled(not Options.Disable3D.Value) end)
+    end)
+
+    Tabs.Misc:AddButton({
+        Title = "Toggle Hidden Market",
+        Description = "Bấm để Bật/Tắt giao diện chợ ẩn",
+        Callback = function()
+            pcall(function()
+                local pGui = lp:FindFirstChild("PlayerGui") or lp.PlayerGui
+                local market = pGui.Shop.Market
+                market.Visible = not market.Visible
+            end)
+        end
+    })
+
+    Tabs.Misc:AddButton({
+        Title = "Toggle Hidden Inventory",
+        Description = "Bấm để Bật/Tắt kho đồ ẩn",
+        Callback = function()
+            pcall(function()
+                local pGui = lp:FindFirstChild("PlayerGui") or lp.PlayerGui
+                local armor = pGui.Shop.Armor
+                armor.Visible = not armor.Visible
+            end)
+        end
+    })
 
     -- Remotes Cache
     local remotesFolder = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
     local healthRemote = remotesFolder:WaitForChild("MHP")
     local trainRemote = remotesFolder:WaitForChild("Gain Hp From Tredmill")
     local rebirthRemote = game:GetService("ReplicatedStorage"):WaitForChild("RebirthRemote")
+    local purchaseRemote = remotesFolder:WaitForChild("Purchase") -- FIXED: Khởi tạo remote chuẩn
     local luckRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remote"):WaitForChild("Function"):WaitForChild("Luck"):WaitForChild("[C-S]DoLuck")
     
     local fireServer = healthRemote.FireServer
@@ -120,17 +143,14 @@ do
     local trainArea = workspace:WaitForChild("Train Area")
 
     local function getTargetButton()
-        if cachedButtonPart and cachedButtonPart.Parent then
-            return cachedButtonPart
-        end
-
-        local buttonsFolder = workspace:FindFirstChild("Buttons")
-        if buttonsFolder then
-            for _, child in ipairs(buttonsFolder:GetChildren()) do
+        if cachedButtonPart and cachedButtonPart.Parent then return cachedButtonPart end
+        local folder = workspace:FindFirstChild("Buttons")
+        if folder then
+            for _, child in ipairs(folder:GetChildren()) do
                 if child.Name == "Button16" then
                     if config.WinValueCheck then
-                        local winsObj = child:FindFirstChild("Wins")
-                        if winsObj and winsObj:IsA("ValueBase") and winsObj.Value == config.WinValueCheck then
+                        local wins = child:FindFirstChild("Wins")
+                        if wins and wins:IsA("ValueBase") and wins.Value == config.WinValueCheck then
                             cachedButtonPart = child
                             return child
                         end
@@ -145,15 +165,12 @@ do
     end
 
     local function getTargetRebirth()
-        if cachedRebirthPart and cachedRebirthPart.Parent then
-            return cachedRebirthPart
-        end
-        
+        if cachedRebirthPart and cachedRebirthPart.Parent then return cachedRebirthPart end
         if trainArea then
             for _, child in ipairs(trainArea:GetChildren()) do
                 if child.Name == "Rebirth" then
-                    local amountObj = child:FindFirstChild("Amount")
-                    if amountObj and amountObj:IsA("ValueBase") and amountObj.Value == config.RebirthAmount then
+                    local amt = child:FindFirstChild("Amount")
+                    if amt and amt:IsA("ValueBase") and amt.Value == config.RebirthAmount then
                         cachedRebirthPart = child
                         return child
                     end
@@ -167,7 +184,6 @@ do
         local char = lp.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
-
         if Options.AutoWin.Value then
             oldCFrame = root.CFrame 
         else
@@ -197,8 +213,7 @@ do
                         Title = "Xóa",
                         Callback = function()
                             isRunning = false 
-                            -- Ép bật lại 3D Rendering tránh lỗi kẹt đen màn hình khi xóa GUI fr fr
-                            pcall(function() game:GetService("RunService"):Set3dRenderingEnabled(true) end)
+                            pcall(function() runService:Set3dRenderingEnabled(true) end)
                             Fluent:Destroy() 
                         end
                     },
@@ -211,7 +226,7 @@ do
         end
     })
 
-    -- Loop 1: Luồng Auto Win kết hợp tọa độ động
+    -- Loops Executor
     task.spawn(function()
         while isRunning do
             waitFrame(runService.Heartbeat)
@@ -221,12 +236,11 @@ do
                 if root then
                     root.CFrame = CFrame.new(config.TargetPos)
                     root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                    
-                    local button = getTargetButton()
-                    if button and firetouch then
+                    local btn = getTargetButton()
+                    if btn and firetouch then
                         for _ = 1, 50 do
-                            firetouch(root, button, 0)
-                            firetouch(root, button, 1)
+                            firetouch(root, btn, 0)
+                            firetouch(root, btn, 1)
                         end
                     end
                 end
@@ -234,7 +248,6 @@ do
         end
     end)
 
-    -- Loop 2: Luồng Spam Health
     task.spawn(function()
         while isRunning do
             if Options.SpamHealth and Options.SpamHealth.Value then
@@ -246,14 +259,12 @@ do
         end
     end)
 
-    -- Loop 3: Luồng Spam Train
     task.spawn(function()
         while isRunning do
             if Options.SpamTrain and Options.SpamTrain.Value then
-                local rebirthPart = getTargetRebirth()
-                if rebirthPart then
-                    local args = { rebirthPart }
-                    trainRemote:FireServer(unpack(args))
+                local rbPart = getTargetRebirth()
+                if rbPart then
+                    trainRemote:FireServer(unpack({ rbPart }))
                 end
                 task.wait(Options.TrainDelay.Value)
             else
@@ -262,14 +273,10 @@ do
         end
     end)
 
-    -- Loop 4: Luồng Auto Roll Pet
     task.spawn(function()
         while isRunning do
             if Options.AutoRoll and Options.AutoRoll.Value then
-                local currentAmount = Options.EggAmount.Value
-                pcall(function()
-                    invokeServer(luckRemote, config.EggName, currentAmount)
-                end)
+                pcall(function() invokeServer(luckRemote, config.EggName, Options.EggAmount.Value) end)
                 task.wait(0.3)
             else
                 task.wait(0.2)
@@ -277,16 +284,28 @@ do
         end
     end)
 
-    -- Loop 5: Luồng Auto Rebirth
     task.spawn(function()
         while isRunning do
             if Options.AutoRebirth and Options.AutoRebirth.Value then
-                pcall(function()
-                    rebirthRemote:FireServer()
-                end)
+                pcall(function() rebirthRemote:FireServer() end)
                 task.wait(0.5)
             else
                 task.wait(0.1)
+            end
+        end
+    end)
+
+    -- Luồng Auto Buy Pack siêu tốc tích hợp micro-batching giải phóng băng thông
+    local cachedPackArgs = { "Legendary" }
+    task.spawn(function()
+        while isRunning do
+            waitFrame(runService.Heartbeat)
+            if Options.AutoBuyPack and Options.AutoBuyPack.Value then
+                pcall(function()
+                    for _ = 1, 30 do -- Spam siêu nhanh 30 requests mỗi khung hình Heartbeat
+                        purchaseRemote:FireServer(unpack(cachedPackArgs))
+                    end
+                end)
             end
         end
     end)
@@ -302,9 +321,3 @@ SaveManager:BuildConfigSection(Tabs.Settings)
 
 Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
-
-Fluent:Notify({
-    Title = "Nesux Hub Upgraded",
-    Content = "Đã thêm Tab Misc + Toggle 3D Rendering tối ưu treo máy siêu mát no cap!",
-    Duration = 5
-})

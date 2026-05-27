@@ -11,9 +11,9 @@ local localPlayer = Players.LocalPlayer
 -- Các Remote điều khiển game
 local damageRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ClientToServer"):WaitForChild("DamageEnemy")
 local dataRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ClientToServer"):WaitForChild("GetPlayerData")
+local equipBestRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ClientToServer"):WaitForChild("EquipBestZombies")
 
 local cacheEquippedZombies = {} 
-local zombieDropdownNames = {}
 
 -- Biến lưu trữ thông số của Tab Misc
 local currentWalkSpeed = 16
@@ -25,11 +25,11 @@ local function getCurrentEnemyFolder()
 end
 
 -- =============================================================================
--- THIẾT LẬP GIAO DIỆN MENU FLUENT (BỔ SUNG TAB MISC)
+-- THIẾT LẬP GIAO DIỆN MENU FLUENT (ENGLISH INTERFACE)
 -- =============================================================================
 local Window = Fluent:CreateWindow({
     Title = "Zombie Spammer Hub",
-    SubTitle = "Clean Version",
+    SubTitle = "Optimized Version",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
     Acrylic = false,
@@ -39,32 +39,56 @@ local Window = Fluent:CreateWindow({
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Main Features", Icon = "swords" }),
-    Misc = Window:AddTab({ Title = "Misc", Icon = "sliders" }), -- Tab Misc mới
+    Misc = Window:AddTab({ Title = "Misc", Icon = "sliders" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
 }
 
 local Options = Fluent.Options
 
--- Hàm đồng bộ dữ liệu Zombie từ Server
-local function fetchZombiesFromServer()
+-- =============================================================================
+-- HÀM XỬ LÝ LOGIC TỰ ĐỘNG LỌC TOP 3 ZOMBIE MẠNH NHẤT
+-- =============================================================================
+local function fetchTop3Zombies()
     local success, playerData = pcall(function()
         return dataRemote:InvokeServer()
     end)
+    
     if success and playerData and playerData.EquippedZombies then
-        cacheEquippedZombies = playerData.EquippedZombies
-        return playerData.EquippedZombies
+        local zombies = playerData.EquippedZombies
+        
+        -- Sắp xếp toàn bộ Zombie đang trang bị theo EquipId giảm dần (ID cao hơn = mạnh hơn)
+        table.sort(zombies, function(a, b)
+            local idA = tonumber(a.EquipId) or 0
+            local idB = tonumber(b.EquipId) or 0
+            return idA > idB
+        end)
+        
+        -- Lọc lấy ra tối đa đúng 3 con đầu bảng (mạnh nhất)
+        local top3 = {}
+        for i = 1, math.min(3, #zombies) do
+            table.insert(top3, zombies[i])
+        end
+        
+        cacheEquippedZombies = top3
+        return top3
     end
     return {}
 end
+
+-- Lấy danh sách lần đầu tiên khi chạy script
+task.spawn(fetchTop3Zombies)
 
 -- =============================================================================
 -- CÁC PHẦN TỬ ĐIỀU KHIỂN TRÊN TAB MAIN
 -- =============================================================================
 
--- 1. Bật/Tắt Tấn Công Thường (Auto Attack)
+-- 1. Bật/Tắt Tự Động Trang Bị Mạnh Nhất (Auto Equip Best)
+local AutoEquipToggle = Tabs.Main:AddToggle("AutoEquipBest", { Title = "Auto Equip Best", Default = false })
+
+-- 2. Bật/Tắt Tấn Công Thường (Auto Attack)
 local AutoAttackToggle = Tabs.Main:AddToggle("AutoAttack", { Title = "Auto Damage Spam", Default = false })
 
--- 2. Cài đặt cấu hình nhịp độ và mục tiêu
+-- 3. Cài đặt cấu hình nhịp độ và mục tiêu
 local SpeedSlider = Tabs.Main:AddSlider("AttackSpeed", {
     Title = "Attack Speed (Delay)",
     Description = "Interval between enemy scans (seconds).",
@@ -85,71 +109,37 @@ local TargetSlider = Tabs.Main:AddSlider("MaxTargets", {
     Callback = function(Value) end
 })
 
--- 3. Bộ lọc danh sách Pet
-local ZombieDropdown = Tabs.Main:AddDropdown("ZombieFilter", {
-    Title = "Select Zombies to Attack",
-    Values = {},
-    Multi = true,
-    Default = {}
-})
-
-local function updateDropdownList()
-    local zombies = fetchZombiesFromServer()
-    table.clear(zombieDropdownNames)
-    
-    local selectedTable = {}
-    for _, z in pairs(zombies) do
-        if z.Name and not table.find(zombieDropdownNames, z.Name) then
-            table.insert(zombieDropdownNames, z.Name)
-            selectedTable[z.Name] = true
-        end
-    end
-    
-    ZombieDropdown:SetValues(zombieDropdownNames)
-    ZombieDropdown:SetValue(selectedTable)
-end
-
+-- Nút bấm thủ công hỗ trợ làm mới danh sách Top 3
 Tabs.Main:AddButton({
-    Title = "Refresh Zombie List",
+    Title = "Manual Refresh Top 3",
+    Description = "Forces the script to recalculate your top 3 strongest equipped zombies.",
     Callback = function()
-        updateDropdownList()
-        Fluent:Notify({ Title = "System", Content = "Zombie inventory updated successfully!", Duration = 3 })
+        fetchTop3Zombies()
+        Fluent:Notify({ Title = "System", Content = "Successfully optimized top 3 strongest zombies!", Duration = 3 })
     end
 })
 
-task.spawn(updateDropdownList)
-
 -- =============================================================================
--- CÁC PHẦN TỬ ĐIỀU KHIỂN TRÊN TAB MISC (MỚI)
+-- CÁC PHẦN TỬ ĐIỀU KHIỂN TRÊN TAB MISC
 -- =============================================================================
-
--- 1. Thanh chỉnh WalkSpeed
 local SpeedPlayerSlider = Tabs.Misc:AddSlider("PlayerSpeed", {
     Title = "WalkSpeed",
-    Description = "Modify your character's movement speed.",
     Default = 16,
     Min = 16,
     Max = 300,
     Rounding = 0,
-    Callback = function(Value)
-        currentWalkSpeed = Value
-    end
+    Callback = function(Value) currentWalkSpeed = Value end
 })
 
--- 2. Thanh chỉnh JumpPower
 local JumpPlayerSlider = Tabs.Misc:AddSlider("PlayerJump", {
     Title = "JumpPower",
-    Description = "Modify your character's jump height.",
     Default = 50,
     Min = 50,
     Max = 300,
     Rounding = 0,
-    Callback = function(Value)
-        currentJumpPower = Value
-    end
+    Callback = function(Value) currentJumpPower = Value end
 })
 
--- 3. Nút HỦY GUI vô cùng quan trọng (DESTROY GUI)
 Tabs.Misc:AddButton({
     Title = "DESTROY GUI",
     Description = "Completely unloads the script, UI, and background loops for testing.",
@@ -160,36 +150,31 @@ Tabs.Misc:AddButton({
             Buttons = {
                 {
                     Title = "Confirm",
-                    Callback = function()
-                        Fluent:Destroy() -- Gọi hàm hủy gốc của thư viện Fluent để dọn sạch UI
-                    end
+                    Callback = function() Fluent:Destroy() end
                 },
                 {
                     Title = "Cancel",
-                    Callback = function()
-                        print("Destruction cancelled.")
-                    end
+                    Callback = function() print("Destruction cancelled.") end
                 }
             }
         })
     end
 })
 
+-- =============================================================================
+-- LUỒNG CHẠY NGẦM KHỞI TẠO CÁC CHỨC NĂNG VÒNG LẶP (BACKGROUND LOOPS)
+-- =============================================================================
 
--- =============================================================================
--- VÒNG LẶP CHẠY LUỒNG ATTACK SPAM CHÍNH
--- =============================================================================
+-- LUỒNG 1: Vòng lặp Spam Damage chính (Chỉ lấy tối đa Top 3 Zombie từ Cache)
 task.spawn(function()
     while true do
-        -- [QUAN TRỌNG]: Tự động ngắt và bẻ gãy vòng lặp nếu nút Destroy được bấm
         if Fluent.Unloaded then break end
 
         local attackEnabled = Options.AutoAttack.Value
         local attackDelay = Options.AttackSpeed.Value
         local maxTargets = Options.MaxTargets.Value
-        local selectedFilter = Options.ZombieFilter.Value
 
-        if attackEnabled then
+        if attackEnabled and #cacheEquippedZombies > 0 then
             local currentFolder = getCurrentEnemyFolder()
             
             if currentFolder then
@@ -203,22 +188,19 @@ task.spawn(function()
                             targetedCount = targetedCount + 1
                             local idNum = tonumber(enemyId) or enemyId
                             
-                            -- Bắn Remote gây sát thương thường dựa trên các Pet được chọn
-                            if #cacheEquippedZombies > 0 then
-                                for _, zombie in pairs(cacheEquippedZombies) do
-                                    if zombie.Name and zombie.EquipId and selectedFilter[zombie.Name] == true then
-                                        damageRemote:FireServer({
-                                            {
-                                                name = zombie.Name,
-                                                enemyId = idNum,
-                                                equipId = tonumber(zombie.EquipId)
-                                            }
-                                        })
-                                    end
+                            -- Spam sát thương dồn từ danh sách tối đa 3 con mạnh nhất đã được lọc sẵn
+                            for _, zombie in pairs(cacheEquippedZombies) do
+                                if zombie.Name and zombie.EquipId then
+                                    damageRemote:FireServer({
+                                        {
+                                            name = zombie.Name,
+                                            enemyId = idNum,
+                                            equipId = tonumber(zombie.EquipId)
+                                        }
+                                    })
                                 end
                             end
                             
-                            -- Ngắt quét nếu đạt số lượng mục tiêu giới hạn trong lượt này
                             if targetedCount >= maxTargets then
                                 break
                             end
@@ -232,16 +214,33 @@ task.spawn(function()
     end
 end)
 
--- Luồng ngầm tự động áp dụng WalkSpeed và JumpPower liên tục
+-- LUỒNG 2: Vòng lặp Auto Equip Best và tự động cập nhật danh sách Top 3
 task.spawn(function()
     while true do
-        if Fluent.Unloaded then break end -- Tự bẻ gãy khi đóng GUI
+        if Fluent.Unloaded then break end
+        
+        if Options.AutoEquipBest.Value then
+            pcall(function()
+                equipBestRemote:InvokeServer()
+            end)
+            -- Sau khi bấm trang bị tốt nhất, gọi hàm lọc lại Top 3 ngay lập tức
+            fetchTop3Zombies()
+            task.wait(5) -- Nhịp chờ 5 giây một lần để tối ưu hóa hiệu năng Server
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+-- LUỒNG 3: Vòng lặp giữ chỉ số WalkSpeed & JumpPower liên tục
+task.spawn(function()
+    while true do
+        if Fluent.Unloaded then break end
         
         local character = localPlayer.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         
         if humanoid then
-            -- Liên tục kiểm tra và khóa thông số theo thanh trượt slider đã cấu hình
             if humanoid.WalkSpeed ~= currentWalkSpeed then
                 humanoid.WalkSpeed = currentWalkSpeed
             end
@@ -250,22 +249,21 @@ task.spawn(function()
                 humanoid.JumpPower = currentJumpPower
             end
         end
-        task.wait(0.1) -- Nhịp kiểm tra nhẹ để tránh overload hiệu năng máy
+        task.wait(0.1)
     end
 end)
 
--- Luồng đồng bộ ngầm túi đồ tự động (15 giây / lần)
+-- LUỒNG 4: Tự động đồng bộ nhẹ danh sách Pet mỗi 15 giây khi không bật Auto Equip
 task.spawn(function()
     while task.wait(15) do
-        if Fluent.Unloaded then break end -- Tự bẻ gãy khi đóng GUI
-        
-        if Options.AutoAttack.Value == false then
-            fetchZombiesFromServer()
+        if Fluent.Unloaded then break end
+        if Options.AutoAttack.Value == false and Options.AutoEquipBest.Value == false then
+            fetchTop3Zombies()
         end
     end
 end)
 
--- Quản lý cấu hình lưu trữ của Fluent
+-- Bàn giao cấu hình cho SaveManager
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 SaveManager:IgnoreThemeSettings()
@@ -280,6 +278,6 @@ SaveManager:LoadAutoloadConfig()
 
 Fluent:Notify({
     Title = "Zombie Spammer",
-    Content = "Script loaded successfully! UI Toggle key: LeftControl",
+    Content = "Optimized script with Auto-Equip Best successfully loaded!",
     Duration = 5
 })

@@ -49,7 +49,7 @@ local Options = Fluent.Options
 -- CÁC PHẦN TỬ ĐIỀU KHIỂN TRÊN TAB MAIN
 -- =============================================================================
 
--- Khu vực hiện Debug 3 con Zombie đang được chọn để đánh
+-- Khu vực hiện Debug 3 con Zombie đang được chọn để đánh trên UI
 local DebugParagraph = Tabs.Main:AddParagraph({
     Title = "Selected Zombies Debug",
     Content = "Fetching data, please wait..."
@@ -83,7 +83,7 @@ local TargetSlider = Tabs.Main:AddSlider("MaxTargets", {
 })
 
 -- =============================================================================
--- HÀM XỬ LÝ LOGIC TỰ ĐỘNG LỌC TOP 3 ZOMBIE MẠNH NHẤT & CẬP NHẬT DEBUG UI
+-- HÀM XỬ LÝ LOGIC TỰ ĐỘNG LỌC TOP 3 ZOMBIE MẠNH NHẤT & CẬP NHẬT DEBUG UI / CONSOLE
 -- =============================================================================
 local function fetchTop3Zombies()
     local success, playerData = pcall(function()
@@ -108,25 +108,33 @@ local function fetchTop3Zombies()
         
         cacheEquippedZombies = top3
         
-        -- Tiến hành cập nhật nội dung Text hiển thị lên Debug Paragraph trên Menu
+        -- Tiến hành cập nhật nội dung Text hiển thị
         local debugText = ""
+        print("=========================================")
+        print("🔍 [ZOMBIE DEBUG] CURRENT TOP 3 SPAM LIST:")
+        
         if #top3 == 0 then
             debugText = "No zombies currently equipped or found!"
+            print("⚠️ No zombies equipped found from server data.")
         else
             for index, zombie in ipairs(top3) do
-                debugText = debugText .. string.format("[%d] %s (ID: %s)\n", index, tostring(zombie.Name), tostring(zombie.EquipId))
+                local line = string.format("[%d] %s (ID: %s)", index, tostring(zombie.Name), tostring(zombie.EquipId))
+                debugText = debugText .. line .. "\n"
+                print(line) -- In trực tiếp ra F9 Console chữ màu trắng/xanh chuẩn
             end
         end
-        -- Cắt bỏ dấu xuống dòng thừa ở cuối cùng
+        print("=========================================")
+        
         debugText = debugText:sub(1, #debugText - 1)
         
-        -- Cập nhật giao diện Fluent UI
+        -- Cập nhật giao diện Fluent UI paragraph
         DebugParagraph:SetTitle("Selected Zombies Debug (" .. tostring(#top3) .. "/3)")
         DebugParagraph:SetContent(debugText)
         
         return top3
     end
     
+    warn("❌ [ZOMBIE DEBUG ERROR]: Failed to fetch data from Server.")
     DebugParagraph:SetContent("Error: Failed to fetch data from Server.")
     return {}
 end
@@ -141,7 +149,7 @@ Tabs.Main:AddButton({
     end
 })
 
--- Lấy danh sách lần đầu tiên khi vừa chạy script để nạp UI ngay lập tức
+-- Lấy danh sách lần đầu tiên khi vừa chạy script để nạp UI và Console ngay lập tức
 task.spawn(fetchTop3Zombies)
 
 -- =============================================================================
@@ -239,7 +247,7 @@ task.spawn(function()
     end
 end)
 
--- LUỒNG 2: Vòng lặp Auto Equip Best và tự động cập nhật danh sách Top 3 + Debug UI
+-- LUỒNG 2: Vòng lặp Auto Equip Best và tự động cập nhật danh sách Top 3 + Debug UI/Console
 task.spawn(function()
     while true do
         if Fluent.Unloaded then break end
@@ -248,7 +256,6 @@ task.spawn(function()
             pcall(function()
                 equipBestRemote:InvokeServer()
             end)
-            -- Sau khi bấm trang bị tốt nhất, gọi hàm lọc lại Top 3 để cập nhật text debug luôn
             fetchTop3Zombies()
             task.wait(5) -- Nhịp chờ 5 giây một lần
         else
@@ -278,7 +285,7 @@ task.spawn(function()
     end
 end)
 
--- LUỒNG 4: Tự động đồng bộ nhẹ danh sách Pet và cập nhật Debug UI mỗi 15 giây khi không treo auto-equip
+-- LUỒNG 4: Tự động đồng bộ nhẹ danh sách Pet và cập nhật Debug UI/Console mỗi 15 giây khi không treo auto-equip
 task.spawn(function()
     while task.wait(15) do
         if Fluent.Unloaded then break end
@@ -303,6 +310,6 @@ SaveManager:LoadAutoloadConfig()
 
 Fluent:Notify({
     Title = "Zombie Spammer",
-    Content = "Optimized script with Live Debug UI loaded successfully!",
+    Content = "Optimized script with Live Debug Console loaded successfully!",
     Duration = 5
 })

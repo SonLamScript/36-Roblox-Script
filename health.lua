@@ -3,7 +3,7 @@ local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/d
 local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
 
 local Window = Fluent:CreateWindow({
-    Title = "NEXUS Hub v3.2",
+    Title = "NEXUS Hub v3.3",
     SubTitle = "by SonDz",
     TabWidth = 160,
     Size = UDim2.fromOffset(580, 460),
@@ -157,9 +157,12 @@ do
     end)
 end
 
+-- Khởi tạo Addons (Đã sửa lỗi)
 SaveManager:SetLibrary(Fluent)
-InterfaceManager:SetFolder("NEXUS_FluentHub") -- FIXED: Viết hoa chữ S chuẩn hóa method của Fluent
+InterfaceManager:SetLibrary(Fluent) -- FIXED: Thêm dòng này để kết nối Library với InterfaceManager trước khi build section
+InterfaceManager:SetFolder("NEXUS_FluentHub") 
 SaveManager:SetFolder("NEXUS_FluentHub/game")
+
 InterfaceManager:BuildInterfaceSection(Tabs.Settings)
 SaveManager:BuildConfigSection(Tabs.Settings)
 
@@ -167,7 +170,7 @@ Window:SelectTab(1)
 SaveManager:LoadAutoloadConfig()
 
 Fluent:Notify({
-    Title = "NEXUS Fixed",
-    Content = "Đã sửa lỗi cú pháp 'setFolder' thành 'SetFolder'. Chạy bao mượt no cap!",
+    Title = "NEXUS Fixed v3.3",
+    Content = "Đã fix lỗi thiếu InterfaceManager.Library ngon lành cành đào fr fr!",
     Duration = 5
 })

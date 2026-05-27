@@ -130,14 +130,13 @@ do
 
     -- ==================== TAB MISC ====================
     Tabs.Misc:AddParagraph({
-        Title = "Hệ thống tối ưu & Vòng quay",
-        Content = "Tối ưu phần cứng và khai thác lỗ hổng Spin Wheel fr fr."
+        Title = "Hệ thống tối ưu & Khai thác",
+        Content = "Tối ưu phần cứng, phá đóng băng và khai thác vòng quay fr fr."
     })
 
     local Disable3DToggle = Tabs.Misc:AddToggle("Disable3D", {Title = "Disable 3D Rendering", Default = false })
     local AntiPauseToggle = Tabs.Misc:AddToggle("AntiGameplayPaused", {Title = "Anti Gameplay Paused", Default = false })
 
-    -- Khai thác Inf Spin: Spam 10000 gói tin tức thì
     Tabs.Misc:AddButton({
         Title = "Inf Spin",
         Description = "Spam siêu tốc 10,000 lượt nhận Spin ngay lập tức",
@@ -153,7 +152,6 @@ do
         end
     })
 
-    -- Lựa chọn nhận thưởng độc quyền từ Spin Wheel
     local RewardDropdown = Tabs.Misc:AddDropdown("SpinReward", {
         Title = "Get Rewards From Spin",
         Values = {"Win Potion", "Health Potion", "Secret Pet"},
@@ -161,13 +159,12 @@ do
         Callback = function() end
     })
 
-    -- Nút bấm thực thi nhận quà đã chọn
     Tabs.Misc:AddButton({
         Title = "Get",
         Description = "Khai thác gói tin để ép server trả thưởng theo mục đã chọn",
         Callback = function()
             local selected = Options.SpinReward.Value
-            local itemArg = 1 -- Mặc định Win Potion
+            local itemArg = 1 
             
             if selected == "Health Potion" then
                 itemArg = 3
@@ -288,7 +285,7 @@ do
         end
     })
 
-    -- Loops Executor
+    -- Loop 1: Luồng Auto Win
     task.spawn(function()
         while isRunning do
             waitFrame(runService.Heartbeat)
@@ -310,6 +307,7 @@ do
         end
     end)
 
+    -- Loop 2: Luồng Spam Health
     task.spawn(function()
         while isRunning do
             if Options.SpamHealth and Options.SpamHealth.Value then
@@ -321,6 +319,7 @@ do
         end
     end)
 
+    -- Loop 3: Luồng Spam Train
     task.spawn(function()
         while isRunning do
             if Options.SpamTrain and Options.SpamTrain.Value then
@@ -335,6 +334,7 @@ do
         end
     end)
 
+    -- Loop 4: Luồng Auto Roll Pet
     task.spawn(function()
         while isRunning do
             if Options.AutoRoll and Options.AutoRoll.Value then
@@ -346,6 +346,7 @@ do
         end
     end)
 
+    -- Loop 5: Luồng Auto Rebirth
     task.spawn(function()
         while isRunning do
             if Options.AutoRebirth and Options.AutoRebirth.Value then
@@ -357,7 +358,7 @@ do
         end
     end)
 
-    -- Luồng Auto Buy Pack Ép Xung Siêu Tốc
+    -- Loop 6: Luồng Auto Buy Pack Ép Xung Siêu Tốc
     local cachedPackArgs = { "Legendary" }
     task.spawn(function()
         while isRunning do
@@ -373,7 +374,7 @@ do
         end
     end)
 
-    -- Luồng Giữ Đè State Không Cho Đứng Hình (Nuke NetworkPause CoreScript)
+    -- Loop 7: Luồng Giữ Đè State Không Cho Đứng Hình (Nuke NetworkPause CoreScript)
     task.spawn(function()
         while isRunning do
             waitFrame(runService.Heartbeat)

@@ -36,6 +36,7 @@ local Window = Fluent:CreateWindow({
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "play" }),
+    Shop = Window:AddTab({ Title = "Shop", Icon = "shopping-cart" }), 
     Misc = Window:AddTab({ Title = "Misc", Icon = "box" }),
     Debug = Window:AddTab({ Title = "Debug", Icon = "code" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
@@ -75,7 +76,48 @@ do
 
     local RebirthToggle = Tabs.Main:AddToggle("AutoRebirth", {Title = "Auto Rebirth", Default = false })
 
-    local EggAmountSlider = Tabs.Main:AddSlider("EggAmount", {
+    -- ==================== TAB SHOP ====================
+    Tabs.Shop:AddParagraph({
+        Title = "Chợ & Trứng",
+        Content = "Quản lý mua sắm gói, mở khóa UI ẩn và auto roll pet."
+    })
+
+    Tabs.Shop:AddButton({
+        Title = "Toggle Hidden Market",
+        Description = "Bấm để Bật/Tắt giao diện chợ ẩn",
+        Callback = function()
+            pcall(function()
+                local pGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui") or game:GetService("Players").LocalPlayer.PlayerGui
+                local market = pGui.Shop.Market
+                market.Visible = not market.Visible
+            end)
+        end
+    })
+
+    Tabs.Shop:AddButton({
+        Title = "Toggle Hidden Inventory",
+        Description = "Bấm để Bật/Tắt kho đồ ẩn",
+        Callback = function()
+            pcall(function()
+                local pGui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui") or game:GetService("Players").LocalPlayer.PlayerGui
+                local armor = pGui.Shop.Armor
+                armor.Visible = not armor.Visible
+            end)
+        end
+    })
+
+    local ProxyPackSlider = Tabs.Shop:AddSlider("PackBatch", {
+        Title = "Pack Buy Speed",
+        Description = "Số lượng gói mua liên tục mỗi khung hình",
+        Default = 50,
+        Min = 1,
+        Max = 300,
+        Rounding = 0,
+        Callback = function() end
+    })
+    local AutoBuyPackToggle = Tabs.Shop:AddToggle("AutoBuyPack", {Title = "Auto Buy Pack", Default = false })
+
+    local EggAmountSlider = Tabs.Shop:AddSlider("EggAmount", {
         Title = "Egg Amount",
         Description = "Số lượng trứng mở mỗi lượt",
         Default = 50,
@@ -84,19 +126,62 @@ do
         Rounding = 0,
         Callback = function() end
     })
-    local RollToggle = Tabs.Main:AddToggle("AutoRoll", {Title = "Auto Roll Pet", Default = false })
+    local RollToggle = Tabs.Shop:AddToggle("AutoRoll", {Title = "Auto Roll Pet", Default = false })
 
     -- ==================== TAB MISC ====================
     Tabs.Misc:AddParagraph({
-        Title = "Game Optimizer & Exploit",
-        Content = "Quản lý giao diện ẩn và tối ưu phần cứng treo máy."
+        Title = "Hệ thống tối ưu & Vòng quay",
+        Content = "Tối ưu phần cứng và khai thác lỗ hổng Spin Wheel fr fr."
     })
 
     local Disable3DToggle = Tabs.Misc:AddToggle("Disable3D", {Title = "Disable 3D Rendering", Default = false })
     local AntiPauseToggle = Tabs.Misc:AddToggle("AntiGameplayPaused", {Title = "Anti Gameplay Paused", Default = false })
-    local AutoBuyPackToggle = Tabs.Misc:AddToggle("AutoBuyPack", {Title = "Auto Buy Pack", Default = false })
 
-    -- Core Services & Player Setup
+    -- Khai thác Inf Spin: Spam 10000 gói tin tức thì
+    Tabs.Misc:AddButton({
+        Title = "Inf Spin",
+        Description = "Spam siêu tốc 10,000 lượt nhận Spin ngay lập tức",
+        Callback = function()
+            local spinRemote = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("AddSpin")
+            task.spawn(function()
+                pcall(function()
+                    for _ = 1, 10000 do
+                        spinRemote:FireServer()
+                    end
+                end)
+            end)
+        end
+    })
+
+    -- Lựa chọn nhận thưởng độc quyền từ Spin Wheel
+    local RewardDropdown = Tabs.Misc:AddDropdown("SpinReward", {
+        Title = "Get Rewards From Spin",
+        Values = {"Win Potion", "Health Potion", "Secret Pet"},
+        Default = "Win Potion",
+        Callback = function() end
+    })
+
+    -- Nút bấm thực thi nhận quà đã chọn
+    Tabs.Misc:AddButton({
+        Title = "Get",
+        Description = "Khai thác gói tin để ép server trả thưởng theo mục đã chọn",
+        Callback = function()
+            local selected = Options.SpinReward.Value
+            local itemArg = 1 -- Mặc định Win Potion
+            
+            if selected == "Health Potion" then
+                itemArg = 3
+            elseif selected == "Secret Pet" then
+                itemArg = 6
+            end
+            
+            pcall(function()
+                game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("SpinEventWheel"):FireServer(itemArg)
+            end)
+        end
+    })
+
+    -- Core Services Cache
     local runService = game:GetService("RunService")
     local lp = game:GetService("Players").LocalPlayer
     local waitFrame = runService.Heartbeat.Wait
@@ -104,37 +189,6 @@ do
     Disable3DToggle:OnChanged(function()
         pcall(function() runService:Set3dRenderingEnabled(not Options.Disable3D.Value) end)
     end)
-
-    -- Cơ chế Anti Gameplay Paused cưỡng ép giải phóng màn hình
-    AntiPauseToggle:OnChanged(function()
-        pcall(function()
-            lp.GameplayPaused = false
-        end)
-    end)
-
-    Tabs.Misc:AddButton({
-        Title = "Toggle Hidden Market",
-        Description = "Bấm để Bật/Tắt giao diện chợ ẩn",
-        Callback = function()
-            pcall(function()
-                local pGui = lp:FindFirstChild("PlayerGui") or lp.PlayerGui
-                local market = pGui.Shop.Market
-                market.Visible = not market.Visible
-            end)
-        end
-    })
-
-    Tabs.Misc:AddButton({
-        Title = "Toggle Hidden Inventory",
-        Description = "Bấm để Bật/Tắt kho đồ ẩn",
-        Callback = function()
-            pcall(function()
-                local pGui = lp:FindFirstChild("PlayerGui") or lp.PlayerGui
-                local armor = pGui.Shop.Armor
-                armor.Visible = not armor.Visible
-            end)
-        end
-    })
 
     -- Remotes Cache
     local remotesFolder = game:GetService("ReplicatedStorage"):WaitForChild("Remotes")
@@ -309,8 +363,9 @@ do
         while isRunning do
             waitFrame(runService.Heartbeat)
             if Options.AutoBuyPack and Options.AutoBuyPack.Value then
+                local currentBatch = Options.PackBatch.Value or 50
                 pcall(function()
-                    for _ = 1, 250 do
+                    for _ = 1, currentBatch do
                         purchaseRemote:FireServer(unpack(cachedPackArgs))
                     end
                 end)
@@ -318,22 +373,22 @@ do
         end
     end)
 
-    -- Luồng bảo vệ ép thuộc tính GameplayPaused liên tục
+    -- Luồng Giữ Đè State Không Cho Đứng Hình (Nuke NetworkPause CoreScript)
     task.spawn(function()
         while isRunning do
             waitFrame(runService.Heartbeat)
             if Options.AntiGameplayPaused and Options.AntiGameplayPaused.Value then
                 pcall(function()
-                    if lp.GameplayPaused then
-                        lp.GameplayPaused = false
-                    end
+                    game:GetService("CoreGui").RobloxGui["CoreScripts/NetworkPause"]:Destroy()
+                end)
+                pcall(function()
+                    if lp.GameplayPaused then lp.GameplayPaused = false end
                 end)
             end
         end
     end)
 end
 
--- Đồng bộ cấu hình add-on Fluent
 SaveManager:SetLibrary(Fluent)
 InterfaceManager:SetLibrary(Fluent)
 InterfaceManager:SetFolder("NesuxHub")
